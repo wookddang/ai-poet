@@ -1,5 +1,3 @@
-from dotenv import load_dotenv
-load_dotenv()
 
 from langchain_openai import OpenAI, ChatOpenAI  
 import os
@@ -27,3 +25,4 @@ if st.button('시 작성 요청하기'):
              
 
 #st.write('시의 주제는', title)
+
