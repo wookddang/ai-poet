@@ -13,7 +13,7 @@ content = "주제"
 
 import streamlit as st
 
-st.title('Ola's playground')
+st.title("Ola's playground")
 
 content = st.text_input('Ask me anything.')
 if st.button('Answer me!'):
@@ -25,5 +25,6 @@ if st.button('Answer me!'):
              
 
 #st.write('시의 주제는', title)
+
 
 
