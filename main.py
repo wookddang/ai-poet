@@ -1,24 +1,29 @@
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 
-from langchain_community.llms import OpenAI
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import OpenAI, ChatOpenAI  
+import os
+# # Text Completion (기존 llm)
+
+chat_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+
+content = "주제"
+
+
+
+# print("Chat 응답:", result2)
+
 import streamlit as st
-import time
-chat_model = ChatOpenAI()
+
 st.title('인공지능 시인')
 
-content = title = st.text_input('시의 주제를 제시해주세요.')
-
-if st.button("시 작성 요청하기"):
-    with st.spinner("시 작성 중..."):
+content = st.text_input('시의 주제를 제시해주세요.')
+if st.button('시 작성 요청하기'):
+    with st.spinner('시 작성 중...'):
 
         result = chat_model.predict(content + "에 대한 시를 써줘")
+    
         st.write(result)
+             
 
-
-
-
-# import streamlit as st
-# st.title('This is a title')
-# st.title('_Streamlit_is : blue[cool] : sunglasses:')
+#st.write('시의 주제는', title)
