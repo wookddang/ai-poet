@@ -28,7 +28,7 @@ if st.button('Answer me!'):
 st.write("---")
 from datetime import datetime
 
-st.title("💬 댓글 남기기 예제")
+st.title("💬 Comment session")
 
 # 세션 상태에 댓글 리스트 없으면 초기화
 if "comments" not in st.session_state:
@@ -36,9 +36,9 @@ if "comments" not in st.session_state:
 
 # 입력 폼
 with st.form("comment_form", clear_on_submit=True):
-    username = st.text_input("이름을 입력하세요")
-    comment = st.text_area("댓글을 남겨주세요")
-    submitted = st.form_submit_button("등록")
+    username = st.text_input("Please enter a name.")
+    comment = st.text_area("Please leave a comment.")
+    submitted = st.form_submit_button("Register")
 
     if submitted and username and comment:
         st.session_state.comments.append({
@@ -56,6 +56,7 @@ if st.session_state.comments:
         st.divider()
 else:
     st.info("아직 댓글이 없습니다. 첫 댓글을 남겨보세요!")
+
 
 
 
