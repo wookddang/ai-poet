@@ -48,7 +48,7 @@ with st.form("comment_form", clear_on_submit=True):
         })
 
 # 댓글 출력
-st.write("### 📜 댓글 목록")
+st.write("### 📜 Comments")
 if st.session_state.comments:
     for c in reversed(st.session_state.comments):
         st.markdown(f"**{c['user']}** · *{c['time']}*")
@@ -56,6 +56,7 @@ if st.session_state.comments:
         st.divider()
 else:
     st.info("아직 댓글이 없습니다. 첫 댓글을 남겨보세요!")
+
 
 
 
