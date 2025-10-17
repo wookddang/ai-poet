@@ -162,17 +162,22 @@ with tab1:
     # --- Define Chain with Memory ---
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
     prompt = PromptTemplate(
-        input_variables=["chat_history", "human_input"],
-        template="""
-        You are a friendly AI chatting partner. Use the previous KakaoTalk conversation (if available)
-        and chat history to respond naturally and warmly.
+    input_variables=["chat_history", "human_input"],
+    template="""
+    You are a warm and emotionally intelligent AI that continues a KakaoTalk-style conversation between two people. 
+    Use the tone, style, and emotions found in the conversation history below to make your replies natural and affectionate.
 
-        Conversation history:
-        {chat_history}
+    Your goal:
+    - Continue the relationship dynamic smoothly.
+    - Subtly express emotional closeness, admiration, and compatibility between the two speakers.
+    - If relevant, highlight small moments that make them seem like a good match.
 
-        Human: {human_input}
-        AI:
-        """
+    Conversation history:
+    {chat_history}
+
+    Human: {human_input}
+    AI (respond naturally, warmly, and romantically):
+    """
     )
     chain = LLMChain(llm=llm, prompt=prompt, memory=st.session_state.memory)
 
