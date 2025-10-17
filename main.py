@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 from datetime import datetime
 import streamlit as st
@@ -9,12 +10,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import Chroma
 from langchain.retrievers.multi_query import MultiQueryRetriever
-from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chains import RetrievalQA, LLMChain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 import json
 from langchain.schema import HumanMessage, AIMessage
+
 # --- Load .env ---
 load_dotenv()
 
@@ -71,24 +72,63 @@ CREATE TABLE IF NOT EXISTS user_memory (
 
 conn.commit()
 
+# --- KakaoTalk Parser ---
+def KakaoTalkParser(text):
+    """
+    카카오톡 txt 파일에서 날짜, 발화자, 메시지를 추출
+    """
+    pattern = re.compile(r"(\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*[오전|오후]+\s*\d{1,2}:\d{2}),\s*(.*)\s*:\s*(.*)")
+    data = []
+
+    for line in text.splitlines():
+        match = pattern.match(line.strip())
+        if match:
+            dt_str, sender, content = match.groups()
+            try:
+                date_obj = datetime.strptime(dt_str.replace("오전", "AM").replace("오후", "PM"), "%Y. %m. %d. %p %I:%M")
+            except:
+                continue
+            data.append((date_obj, sender.strip(), content.strip()))
+    return data
+
+
 # --- Streamlit Layout ---
-st.set_page_config(page_title="AI Playground", page_icon="🤖", layout="centered")
-st.title("🤖 AI Agent Playground")
+st.set_page_config(page_title="🐶 Maltipoo Chat Playground", page_icon="🐶", layout="centered")
+st.title("🐾 My Maltipoo's Playground")
 st.write("---")
 
 tab1, tab2, tab3 = st.tabs(["💬 Chat", "📚 PDF Q&A", "🗨 Comments"])
 
 # ===================================================================
-# 1️⃣ Chat (with Persistent Memory)
+# 1️⃣ Chat (with Persistent Memory + KakaoTalk Upload)
 # ===================================================================
 with tab1:
-    st.header("Your Private GPT")
+    st.header("Your Private GPT (with KakaoTalk Context)")
+
     username = st.text_input("Name (optional)", key="chat_user")
     question = st.text_input("Ask something")
 
+    # ✅ KakaoTalk Upload
+    uploaded_chat = st.file_uploader("📎 Upload KakaoTalk text file (.txt)", type=["txt"])
+    kakao_memory_context = ""
+
+    if uploaded_chat:
+        content = uploaded_chat.read().decode("utf-8")
+        parsed_msgs = KakaoTalkParser(content)
+
+        if len(parsed_msgs) > 0:
+            st.success(f"✅ Parsed {len(parsed_msgs)} messages successfully!")
+            for msg in parsed_msgs[-5:]:
+                st.markdown(f"🕓 *{msg[0]}* — **{msg[1]}**: {msg[2]}")
+
+            kakao_memory_context = "\n".join(
+                [f"{sender}: {text}" for (_, sender, text) in parsed_msgs]
+            )
+        else:
+            st.warning("❌ Failed to parse KakaoTalk file. Please check encoding or format.")
+
     # --- Memory Persistent Logic ---
     if username:
-        # ✅ 메모리 초기화 (Streamlit 세션 기준)
         if "memory" not in st.session_state:
             st.session_state.memory = ConversationBufferMemory(memory_key="chat_history")
 
@@ -97,7 +137,6 @@ with tab1:
         row = cur.fetchone()
         if row and row[0]:
             try:
-            # JSON 복원
                 messages_data = json.loads(row[0])
                 st.session_state.memory.chat_memory.messages = []
                 for msg in messages_data:
@@ -107,20 +146,26 @@ with tab1:
                         st.session_state.memory.chat_memory.add_ai_message(msg["content"])
             except Exception as e:
                 print("⚠️ Memory restore failed:", e)
-            
-           
     else:
-        # ✅ username이 없을 때도 에러 방지를 위해 기본 메모리 생성
         if "memory" not in st.session_state:
             st.session_state.memory = ConversationBufferMemory(memory_key="chat_history")
+
+    # ✅ KakaoTalk 내용이 있다면 Memory에 반영
+    if kakao_memory_context:
+        if "kakao_loaded" not in st.session_state:
+            st.session_state.memory.chat_memory.add_ai_message(
+                f"Below is your KakaoTalk conversation history:\n{kakao_memory_context}\n"
+                f"Now continue chatting naturally based on this context."
+            )
+            st.session_state.kakao_loaded = True
 
     # --- Define Chain with Memory ---
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
     prompt = PromptTemplate(
         input_variables=["chat_history", "human_input"],
         template="""
-        The following is a conversation between a human and an AI assistant.
-        Use the previous context to respond naturally.
+        You are a friendly AI chatting partner. Use the previous KakaoTalk conversation (if available)
+        and chat history to respond naturally and warmly.
 
         Conversation history:
         {chat_history}
@@ -130,7 +175,6 @@ with tab1:
         """
     )
     chain = LLMChain(llm=llm, prompt=prompt, memory=st.session_state.memory)
-
 
     if st.button("Send", key="chat_btn"):
         if not username:
@@ -167,11 +211,8 @@ with tab1:
                 DO UPDATE SET memory_text = EXCLUDED.memory_text, updated_at = NOW();
             """, (username or "anonymous", memory_json))
             conn.commit()
-            st.success("Conversation saved to memory database!")
+            st.success("💾 Conversation saved to memory database!")
 
-    st.divider()
-    if st.checkbox("Show current memory buffer"):
-        st.text(st.session_state.memory.buffer)
 
 # ===================================================================
 # 2️⃣ PDF Q&A
@@ -200,7 +241,6 @@ with tab2:
         embeddings_model = OpenAIEmbeddings()
         db = Chroma.from_documents(texts, embeddings_model)
 
-        # 파일 메타정보 저장
         cur.execute(
             "INSERT INTO embeddings_meta (username, filename, chroma_id) VALUES (%s, %s, %s)",
             ("default_user", uploaded_file.name, "local_chroma"),
@@ -236,6 +276,7 @@ with tab2:
             """, ("default_user", "pdf", pdf_q, answer))
             conn.commit()
             st.success("PDF Q&A saved to database!")
+
 
 # ===================================================================
 # 3️⃣ Comments
