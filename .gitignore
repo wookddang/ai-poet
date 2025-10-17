@@ -1,3 +1,8 @@
-".env" 
-".env.toml" 
-"backup/" 
+# Environment files
+.env
+env.toml
+
+# Local data
+*.db
+backup/
+__pycache__/
