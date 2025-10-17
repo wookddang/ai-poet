@@ -24,7 +24,8 @@ conn = psycopg2.connect(
     database=os.getenv("POSTGRES_DB"),
     user=os.getenv("POSTGRES_USER"),
     password=os.getenv("POSTGRES_PASSWORD"),
-    port=os.getenv("POSTGRES_PORT")
+    port=os.getenv("POSTGRES_PORT"),
+    sslmode="require"
 )
 cur = conn.cursor()
 
