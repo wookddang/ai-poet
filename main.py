@@ -164,7 +164,7 @@ with tab1:
     prompt = PromptTemplate(
     input_variables=["chat_history", "human_input"],
     template="""
-    You are a warm and emotionally intelligent AI that continues a KakaoTalk-style conversation between two people. 
+    You are a warm and emotionally intelligent AI that continues conversation between two people. 
     Use the tone, style, and emotions found in the conversation history below to make your replies natural and affectionate.
 
     Your goal:
@@ -232,9 +232,15 @@ with tab2:
         with open(temp_filepath, "wb") as f:
             f.write(uploaded_file.getvalue())
 
-        loader = PyPDFLoader(temp_filepath)
-        pages = loader.load_and_split()
+        #---PDF 로드 ---
+        try:
+            loader = PyPDFLoader(temp_filepath)
+            pages = loader.load_and_split()
+        except Exception as e:
+            st.error(f"❌ PDF load failed: {e}")
+            pages = []
 
+        #--- 텍스트 분할 ---
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=300,
             chunk_overlap=20,
@@ -243,8 +249,9 @@ with tab2:
         )
         texts = text_splitter.split_documents(pages)
 
+        persist_dir = "./chroma_db"
         embeddings_model = OpenAIEmbeddings()
-        db = Chroma.from_documents(texts, embeddings_model)
+        db = Chroma.from_documents(texts, embeddings_model, persist_directory=persist_dir)
 
         cur.execute(
             "INSERT INTO embeddings_meta (username, filename, chroma_id) VALUES (%s, %s, %s)",
@@ -260,12 +267,13 @@ with tab2:
         if st.button("Ask PDF", key="pdf_btn"):
             llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
             retriever = MultiQueryRetriever.from_llm(
-                retriever=db.as_retriever(), llm=llm
+                retriever=db.as_retriever(search_kwargs={"k": 5}), llm=llm
             )
 
             qa_chain = RetrievalQA.from_chain_type(
                 llm=llm,
-                retriever=db.as_retriever(),
+                retriever=retriever,
+                chain_type="stuff"
             )
 
             with st.spinner("Analyzing PDF..."):
